@@ -5,6 +5,7 @@ import sys
 import json
 import uuid
 import re
+import subprocess
 
 from flask import Flask, request
 import flask
@@ -14,7 +15,7 @@ if os.environ.get('DEBUG') == 'true':
     app.debug = True
 
 mappings = []
-UPDATE_SH = '/usr/local/bin/restart_docker'
+RESTART_SCRIPT = '/usr/local/bin/restart_docker'
 URL_PREFIX = "/git/vc3"
 
 @app.route(URL_PREFIX + '/vc3_webhook.wsgi', methods=['GET', 'POST'])
@@ -41,7 +42,7 @@ def update_code():
                     "msg": "Invalid event type"}
         return flask.jsonify(response)
 
-    os.execv('/bin/sh', ['sh', UPDATE_SH])
+    subprocess.call([RESTART_SCRIPT])
     response = {"status": 200,
                 "msg": "Ok"}
     return flask.jsonify(response)
