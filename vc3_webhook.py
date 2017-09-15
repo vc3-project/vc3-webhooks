@@ -6,6 +6,7 @@ import json
 import uuid
 import re
 import subprocess
+import hmac
 
 from flask import Flask, request
 import flask
@@ -41,6 +42,16 @@ def update_code():
         response = {"status": 400,
                     "msg": "Invalid event type"}
         return flask.jsonify(response)
+
+    # get github secret and verify push
+    secret = os.environ['GITHUB_SECRET']
+    payload_signature = request.headers.get('X-Hub-Signature')
+    signature = "sha=1" + hmac.new(secret, str(request.form)).hexdigest()
+    if signature != payload_signature:
+        response = {"status": 403,
+                    "msg": "Signature doesn't match"}
+        return flask.jsonify(response)
+
 
     subprocess.call([RESTART_SCRIPT])
     response = {"status": 200,
