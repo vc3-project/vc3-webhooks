@@ -7,6 +7,7 @@ import uuid
 import re
 import subprocess
 import hmac
+import hashlib
 
 from flask import Flask, request
 import flask
@@ -41,22 +42,25 @@ def update_code():
         # punt if it's not a push
         response = {"status": 400,
                     "msg": "Invalid event type"}
-        return flask.jsonify(response)
-
+        return flask.jsonify(response), 400
     # get github secret and verify push
     secret = os.environ['GITHUB_SECRET']
     payload_signature = request.headers.get('X-Hub-Signature')
-    signature = "sha=1" + hmac.new(secret, str(request.form)).hexdigest()
+    signature = "sha1=" + hmac.new(secret, str(request.data), digestmod=hashlib.sha1).hexdigest()
     if signature != payload_signature:
         response = {"status": 403,
                     "msg": "Signature doesn't match"}
-        return flask.jsonify(response)
+        return flask.jsonify(response), 403
 
-
-    subprocess.call([RESTART_SCRIPT])
-    response = {"status": 200,
-                "msg": "Ok"}
+    try:
+        subprocess.check_call([RESTART_SCRIPT])
+    except CalledProcessError as e:
+        response = {"status": 200,
+                    "msg": "Could not reload container: {0}".format(e)}
+    else:
+        response = {"status": 200, "msg": "Container reloaded"}
     return flask.jsonify(response)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8888)
+    
