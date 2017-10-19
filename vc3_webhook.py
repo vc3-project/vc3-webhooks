@@ -1,13 +1,10 @@
 #!/usr/bin/env python
 
 import os
-import sys
-import json
-import uuid
-import re
 import subprocess
 import hmac
 import hashlib
+import json
 
 from flask import Flask, request
 import flask
@@ -19,6 +16,7 @@ if os.environ.get('DEBUG') == 'true':
 mappings = []
 RESTART_SCRIPT = '/usr/local/bin/restart_docker'
 URL_PREFIX = "/git/vc3"
+
 
 @app.route(URL_PREFIX + '/vc3_webhook.wsgi', methods=['GET', 'POST'])
 def update_code():
@@ -52,15 +50,26 @@ def update_code():
                     "msg": "Signature doesn't match"}
         return flask.jsonify(response), 403
 
+    # Check to see if we're only checking for a certain branch
+    if 'GITHUB_BRANCH' in os.environ:
+        ref = "refs/heads/{0}".format(os.environ['GITHUB_BRANCH'])
+        github_response = json.loads(str(request.data))
+        if github_response[ref] != ref:
+            response = {"status": 200,
+                        "msg": "Interested in push " +
+                               "to {0} not {1}, ignoring".format(ref, github_response[ref])}
+            return flask.jsonify(response), 200
+
     try:
         subprocess.check_call([RESTART_SCRIPT])
-    except CalledProcessError as e:
+    except subprocess.CalledProcessError as e:
         response = {"status": 200,
                     "msg": "Could not reload container: {0}".format(e)}
     else:
         response = {"status": 200, "msg": "Container reloaded"}
     return flask.jsonify(response)
 
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8888)
-    
+
