@@ -5,6 +5,8 @@ import subprocess
 import hmac
 import hashlib
 import json
+import logging
+import logging.handlers
 
 from flask import Flask, request
 import flask
@@ -16,6 +18,14 @@ if os.environ.get('DEBUG') == 'true':
 mappings = []
 RESTART_SCRIPT = '/usr/local/bin/restart_docker'
 URL_PREFIX = "/git/vc3"
+
+
+if app.debug:
+    handler = logging.handlers.RotatingFileHandler(filename='/tmp/vc3-webhook.log')
+    handler.setLevel(logging.DEBUG)
+    app.logger.addHandler(handler)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+    handler.setFormatter(formatter)
 
 
 @app.route(URL_PREFIX + '/vc3_webhook.wsgi', methods=['GET', 'POST'])
@@ -54,10 +64,10 @@ def update_code():
     if 'GITHUB_BRANCH' in os.environ:
         ref = "refs/heads/{0}".format(os.environ['GITHUB_BRANCH'])
         github_response = json.loads(str(request.data))
-        if github_response[ref] != ref:
+        if github_response['ref'] != ref:
             response = {"status": 200,
                         "msg": "Interested in push " +
-                               "to {0} not {1}, ignoring".format(ref, github_response[ref])}
+                               "to {0} not {1}, ignoring".format(ref, github_response['ref'])}
             return flask.jsonify(response), 200
 
     try:
